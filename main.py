@@ -1,10 +1,13 @@
 import os
 import re
-import time
 from algoritmo_construtivo import (
     preparar_clientes,
+    inicializar_rotas,
+    juntar_rotas_com_heap,
+    aplicar_2opt_em_todas_rotas,
     salvar_solucao,
-    grasp_rotas  
+    refusao_pos_otimizacao,      # NOVO
+    remover_rotas_inuteis        # NOVO
 )
 from leitor_grafo import (
     leitor_arquivo,
@@ -18,7 +21,6 @@ def extrair_numero(nome):
 def main():
     pasta_dados = "dados"
     pasta_saida = os.path.join("solucoes")
-    log_path = os.path.join("log_execucao.txt")
 
     if not os.path.isdir(pasta_dados):
         print("Erro: A pasta 'dados/' não foi encontrada.")
@@ -32,59 +34,44 @@ def main():
         print("Nenhum arquivo .dat encontrado na pasta 'dados/'.")
         return
 
-    with open(log_path, "w", encoding="utf-8") as log:
-        log.write("LOG DE EXECUÇÃO - GRASP com realocação e refusão\n")
-        log.write("====================================\n\n")
+    for nome_arquivo in arquivos_dat:
+        caminho_completo = os.path.join(pasta_dados, nome_arquivo)
+        print(f"\n🔄 Processando: {nome_arquivo}")
 
-        for nome_arquivo in arquivos_dat:
-            caminho_completo = os.path.join(pasta_dados, nome_arquivo)
-            print(f"\n🔄 Processando: {nome_arquivo}")
-            log.write(f"Instância: {nome_arquivo}\n")
+        dados = leitor_arquivo(caminho_completo)
+        vertices = dados["vertices"]
+        arestas = dados["arestas"]
+        arcos = dados["arcos"]
+        vertices_req = dados["vertices_requeridos"]
+        arestas_req = dados["arestas_requeridas"]
+        arcos_req = dados["arcos_requeridos"]
+        capacidade = int(dados["header"].get("Capacity"))
+        deposito = int(dados["header"].get("Depot Node"))
 
-            tempo_ini_total = time.time()
+        distancias = criar_matriz_distancias(vertices, arestas, arcos)
+        clientes = preparar_clientes(vertices_req, arestas_req, arcos_req)
+        rotas_iniciais = inicializar_rotas(clientes, deposito, distancias)
+        rotas_fundidas = juntar_rotas_com_heap(rotas_iniciais, distancias, deposito, capacidade, ganho_minimo=0.1)
 
-            dados = leitor_arquivo(caminho_completo)
-            vertices = dados["vertices"]
-            arestas = dados["arestas"]
-            arcos = dados["arcos"]
-            vertices_req = dados["vertices_requeridos"]
-            arestas_req = dados["arestas_requeridas"]
-            arcos_req = dados["arcos_requeridos"]
-            capacidade = int(dados["header"].get("Capacity"))
-            deposito = int(dados["header"].get("Depot Node"))
+        # Fusão adicional: refusão pós-heurística
+        rotas_refundidas = refusao_pos_otimizacao(rotas_fundidas, capacidade, distancias, deposito, ganho_minimo=0.1)
+        # Remove rotas sem clientes (inúteis)
+        rotas_filtradas = remover_rotas_inuteis(rotas_refundidas)
 
-            distancias = criar_matriz_distancias(vertices, arestas, arcos)
-            clientes = preparar_clientes(vertices_req, arestas_req, arcos_req)
+        # Ajusta número de iterações do 2-opt conforme tamanho
+        num_clientes = len(clientes)
+        if num_clientes > 100:
+            max_iter_2opt = 5
+        else:
+            max_iter_2opt = 20
 
-            print("🚀 Iniciando GRASP com 10 iterações...")
-            tempo_ini_grasp = time.time()
-            rotas_otimizadas = grasp_rotas(
-                clientes, deposito, distancias, capacidade,
-                iteracoes=10, ganho_minimo=0.1
-            )
-            tempo_fim_grasp = time.time()
+        rotas_otimizadas = aplicar_2opt_em_todas_rotas(
+            rotas_filtradas, distancias, max_iter=max_iter_2opt, verbose=False
+        )
 
-            nome_saida = os.path.join(pasta_saida, f"sol-{nome_arquivo}")
-            salvar_solucao(rotas_otimizadas, nome_saida, deposito, distancias)
-            tempo_total = time.time() - tempo_ini_total
-
-            # Log
-            custo_total = sum(
-                sum(distancias[r["sequencia"][k]][r["sequencia"][k+1]] for k in range(len(r["sequencia"]) - 1)) +
-                sum(c["custo"] for c in r["clientes"])
-                for r in rotas_otimizadas
-            )
-
-            print(f"✅ GRASP finalizado. Rotas: {len(rotas_otimizadas)}, Custo: {int(custo_total)}")
-            print(f"💾 Solução salva em: {nome_saida}\n")
-
-            log.write(f"  ➤ Rotas finais: {len(rotas_otimizadas)}\n")
-            log.write(f"  ➤ Custo total final: {int(custo_total)}\n")
-            log.write(f"  ➤ Tempo GRASP: {tempo_fim_grasp - tempo_ini_grasp:.2f} s\n")
-            log.write(f"  ➤ Tempo total: {tempo_total:.2f} s\n")
-            log.write("--------------------------------------------------\n")
-
-    print(f"\n📄 Log de execução salvo em: {log_path}")
+        nome_saida = os.path.join(pasta_saida, f"sol-{nome_arquivo}")
+        salvar_solucao(rotas_otimizadas, nome_saida, deposito, distancias)
+        print(f"💾 Solução salva em: {nome_saida}\n")
 
 if __name__ == "__main__":
     main()
