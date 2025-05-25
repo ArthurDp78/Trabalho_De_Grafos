@@ -106,3 +106,44 @@ def criar_matriz_distancias(vertices, arestas, arcos):
                 if distancias[i][j] > distancias[i][k] + distancias[k][j]:
                     distancias[i][j] = distancias[i][k] + distancias[k][j]
     return distancias
+
+def extrair_servicos(dados_leitura):
+    servicos = []
+    id_atual = 1
+
+    for (vertice, (demanda, custo_servico)) in sorted(dados_leitura["vertices_requeridos"], key=lambda x: x[0]):
+        servicos.append({
+            "id_servico": id_atual,
+            "tipo": "vertice",
+            "origem": vertice,
+            "destino": vertice,
+            "demanda": demanda,
+            "custo_servico": custo_servico
+        })
+        id_atual += 1
+
+    for (aresta, (custo_transporte, demanda, custo_servico)) in sorted(dados_leitura["arestas_requeridas"], key=lambda x: x[0]):
+        origem, destino = aresta
+        servicos.append({
+            "id_servico": id_atual,
+            "tipo": "aresta",
+            "origem": origem,
+            "destino": destino,
+            "demanda": demanda,
+            "custo_servico": custo_servico
+        })
+        id_atual += 1
+
+    for (arco, (custo_transporte, demanda, custo_servico)) in sorted(dados_leitura["arcos_requeridos"], key=lambda x: x[0]):
+        origem, destino = arco
+        servicos.append({
+            "id_servico": id_atual,
+            "tipo": "arco",
+            "origem": origem,
+            "destino": destino,
+            "demanda": demanda,
+            "custo_servico": custo_servico
+        })
+        id_atual += 1
+
+    return servicos
