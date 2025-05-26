@@ -1,7 +1,5 @@
 def swap_entre_rotas(rotas, matriz_distancias, capacidade, deposito, max_iter=100):
-    """
-    Tenta trocar pares de serviços entre rotas diferentes para reduzir o custo total.
-    """
+    
     def demanda_rota(rota):
         return sum(servico["demanda"] for servico in rota)
 

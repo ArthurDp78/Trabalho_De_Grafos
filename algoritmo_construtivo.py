@@ -67,9 +67,9 @@ def salvar_solucao(
     nome_arquivo,
     rotas,
     matriz_distancias,
+    tempo_referencia_execucao,
+    tempo_referencia_solucao,
     deposito=0,
-    tempo_referencia_execucao=0,
-    tempo_referencia_solucao=0
 ):
     custo_total_solucao = 0
     total_rotas = len(rotas)

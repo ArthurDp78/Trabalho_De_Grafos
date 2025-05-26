@@ -14,7 +14,6 @@ def custo_total(rotas, matriz_distancias, deposito):
     return custo
 
 def busca_local_2opt(rotas, matriz_distancias, deposito, max_iter=5):
-    # Aplica 2-opt em cada rota individualmente, limitado por max_iter
     for rota in rotas:
         if len(rota) < 4:
             continue
@@ -57,11 +56,10 @@ def grasp(
     melhor_custo = float("inf")
 
     for _ in range(max_iter):
-        # Randomização: embaralha os serviços antes do construtivo
+        
         servicos_random = servicos[:]
         random.shuffle(servicos_random)
 
-        # Construtivo guloso randomizado (pode adaptar o Clarke-Wright para usar alpha)
         rotas = algoritmo_clarke_wright(
             servicos_random,
             deposito=deposito,
@@ -69,7 +67,6 @@ def grasp(
             capacidade=capacidade
         )
 
-        # Busca local (2-opt) otimizada
         rotas = busca_local_2opt(rotas, matriz_distancias, deposito, max_iter=5)
 
         custo = custo_total(rotas, matriz_distancias, deposito)
