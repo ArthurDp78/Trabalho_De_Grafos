@@ -1,6 +1,8 @@
 import os
 from leitor_grafo import leitor_arquivo, criar_matriz_distancias, extrair_servicos
-from algoritmo_construtivo import algoritmo_clarke_wright, salvar_solucao
+from grasp import grasp  # Importa o GRASP
+from algoritmo_construtivo import salvar_solucao
+from otimizacao import swap_entre_rotas  # Importe a função swap
 
 def main():
     pasta_entrada = "dados"
@@ -30,12 +32,17 @@ def main():
 
         servicos = extrair_servicos(dados)
 
-        rotas_final = algoritmo_clarke_wright(
+        rotas_final = grasp(
             servicos,
             deposito=deposito,
             matriz_distancias=matriz_distancias,
-            capacidade=capacidade
+            capacidade=capacidade,
+            max_iter=30,  # Ajuste para mais iterações se quiser
+            alpha=0.3     # Não usado diretamente, mas pode ser usado para randomização mais sofisticada
         )
+
+        # Otimização extra: swap entre rotas
+        rotas_final = swap_entre_rotas(rotas_final, matriz_distancias, capacidade, deposito)
 
         nome_saida = os.path.join(pasta_saida, f"sol-{arquivo}")
         salvar_solucao(nome_saida, rotas_final, matriz_distancias, deposito=deposito)
