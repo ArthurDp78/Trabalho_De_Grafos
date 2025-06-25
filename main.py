@@ -2,7 +2,7 @@ import os
 import time
 import psutil
 from leitor_grafo import leitor_arquivo, criar_matriz_distancias, extrair_servicos
-from algoritmo_construtivo import salvar_solucao, clarke_wright, vnd
+from algoritmo_construtivo import salvar_solucao,multi_start_pipeline
 
 def main():
     pasta_entrada = "dados"
@@ -36,12 +36,15 @@ def main():
         # Medição do tempo total de execução (em ciclos de CPU estimados)
         clock_inicio_total = time.perf_counter_ns()
 
-        # 1. Solução inicial com Clarke-Wright
-        rotas, demandas = clarke_wright(servicos, deposito, matriz_distancias, capacidade)
-
-        # 2. Otimização com VND
-        rotas_otimizadas, _ = vnd(rotas, demandas, capacidade, matriz_distancias, deposito)
-
+        rotas_otimizadas, demandas = multi_start_pipeline(
+            servicos,
+            deposito,
+            matriz_distancias,
+            capacidade,
+            servicos,         # lista completa de serviços obrigatórios
+            k_grasp=3,        # ou outro valor desejado para top-k do GRASP
+            num_tentativas=5  # ajuste conforme desejado
+        )
         clock_fim_total = time.perf_counter_ns()
         clock_total = clock_fim_total - clock_inicio_total
 
