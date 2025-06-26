@@ -1,6 +1,6 @@
 import random
 import copy
-
+import time
 def construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade):
     rotas = []
     demandas = []
@@ -166,8 +166,9 @@ def multi_start_pipeline(
     matriz_distancias,
     capacidade,
     servicos_obrigatorios,
-    k_grasp=3,
-    num_tentativas=5
+    k_grasp=7,
+    num_tentativas=10,
+    freq_hz=None  # passe freq_hz do main.py, se quiser clocks em ciclos
 ):
     """
     Multi-start controlado para o pipeline CARP:
@@ -176,25 +177,19 @@ def multi_start_pipeline(
     - Em cada tentativa, gera uma solução completa (rotas finais e custo total).
     - Ao final, seleciona e retorna apenas a melhor solução (menor custo total, ou menos rotas em caso de empate).
 
-    Parâmetros:
-        servicos: lista de serviços obrigatórios
-        deposito: índice do depósito
-        matriz_distancias: matriz de distâncias do grafo
-        capacidade: capacidade máxima do veículo
-        servicos_obrigatorios: lista de todos os serviços obrigatórios (para validação)
-        k_grasp: parâmetro top-k para o GRASP (default=3)
-        num_tentativas: número de tentativas multi-start (default=5)
-
     Retorna:
-        melhor_rotas, melhor_demandas
+        melhor_rotas, melhor_demandas, clock_total_ciclos, melhor_clock_encontrado_ciclos
     """
     melhor_custo = float('inf')
     melhor_num_rotas = float('inf')
     melhor_rotas = None
     melhor_demandas = None
+    melhor_clock_encontrado = None
 
+    clock_inicio = time.perf_counter_ns()
     for tentativa in range(num_tentativas):
-        # Define uma seed diferente para cada tentativa para garantir diversidade
+        # Marca o clock do início da tentativa
+        clock_tentativa = time.perf_counter_ns()
         random.seed(12345 + tentativa)
 
         # 1. Construção inicial com Clarke & Wright GRASP (com randomização controlada)
@@ -229,15 +224,26 @@ def multi_start_pipeline(
             melhor_num_rotas = num_rotas
             melhor_rotas = [list(r) for r in rotas_final]
             melhor_demandas = list(demandas_final)
+            melhor_clock_encontrado = clock_tentativa  # registra o clock quando achou a melhor
+
             print(f"[Tentativa {tentativa+1}] Nova melhor solução: custo {custo_total}, rotas {num_rotas}")
 
-    # Mostra resultado final
+    clock_fim = time.perf_counter_ns()
+
+    # Converte para ciclos se freq_hz foi fornecida (senão retorna em nanosegundos)
+    if freq_hz:
+        clock_total_ciclos = int((clock_fim - clock_inicio) * (freq_hz / 1_000_000_000))
+        melhor_clock_encontrado_ciclos = int((melhor_clock_encontrado - clock_inicio) * (freq_hz / 1_000_000_000)) if melhor_clock_encontrado else -1
+    else:
+        clock_total_ciclos = clock_fim - clock_inicio
+        melhor_clock_encontrado_ciclos = (melhor_clock_encontrado - clock_inicio) if melhor_clock_encontrado else -1
+
     if melhor_rotas is not None:
         print(f"\nMelhor solução multi-start: custo {melhor_custo}, rotas {melhor_num_rotas}")
     else:
         print("Nenhuma solução válida encontrada!")
 
-    return melhor_rotas, melhor_demandas
+    return melhor_rotas, melhor_demandas, clock_total_ciclos, melhor_clock_encontrado_ciclos
 
 def segment_relocate(rotas, demandas, capacidade, matriz_distancias, deposito, servicos_obrigatorios):
     """
