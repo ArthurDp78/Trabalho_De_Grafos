@@ -2,6 +2,22 @@ import random
 import copy
 import time
 def construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade):
+    """
+    1. Objetivo:
+       Cria uma solução inicial trivial para o problema de roteamento, onde cada serviço obrigatório é atendido por uma rota separada.
+
+    2. Entradas:
+       - servicos: lista de dicionários, cada um representando um serviço obrigatório.
+       - deposito: índice do depósito (nó de partida/chegada).
+       - matriz_distancias: matriz de distâncias entre os nós do grafo.
+       - capacidade: capacidade máxima do veículo.
+
+    3. Lógica:
+       Para cada serviço, cria uma rota contendo apenas esse serviço e registra sua demanda.
+
+    4. Contribuição:
+       Serve como ponto de partida para algoritmos construtivos e heurísticas de fusão de rotas.
+    """
     rotas = []
     demandas = []
     for serv in servicos:
@@ -11,6 +27,22 @@ def construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade):
     return rotas, demandas
 
 def rota_custo(rota, matriz_distancias, deposito):
+    """
+    1. Objetivo:
+       Calcula o custo total de uma rota, considerando custos de serviço e transporte.
+
+    2. Entradas:
+       - rota: lista de serviços (na ordem de atendimento).
+       - matriz_distancias: matriz de distâncias entre nós.
+       - deposito: índice do depósito.
+
+    3. Lógica:
+       Soma o custo de serviço de cada serviço na rota.
+       Soma o custo de transporte: do depósito ao primeiro serviço, entre serviços consecutivos, e do último serviço de volta ao depósito.
+
+    4. Contribuição:
+       Permite avaliar e comparar rotas, sendo fundamental para heurísticas de melhoria e validação de soluções.
+    """
     if not rota:
         return 0
     custo_servico = sum(serv['custo_servico'] for serv in rota)
@@ -22,6 +54,22 @@ def rota_custo(rota, matriz_distancias, deposito):
     return custo_servico + custo_transporte
 
 def calcular_savings(servicos, deposito, matriz_distancias):
+    """
+    1. Objetivo:
+       Calcula a matriz de 'savings' (economias) para todos os pares de serviços, segundo o método de Clarke & Wright.
+
+    2. Entradas:
+       - servicos: lista de serviços obrigatórios.
+       - deposito: índice do depósito.
+       - matriz_distancias: matriz de distâncias.
+
+    3. Lógica:
+       Para cada par de serviços (i, j), calcula o quanto se economiza ao atendê-los juntos em vez de separadamente.
+       Ordena os savings do maior para o menor.
+
+    4. Contribuição:
+       Fundamenta o algoritmo de fusão de rotas do Clarke & Wright e suas variantes.
+    """
     savings = []
     n = len(servicos)
     for i in range(n):
@@ -39,23 +87,25 @@ def calcular_savings(servicos, deposito, matriz_distancias):
 
 def clarke_wright_grasp(servicos, deposito, matriz_distancias, capacidade, k=3):
     """
-    Variante GRASP do Clarke & Wright:
-    - Em cada iteração, escolhe aleatoriamente entre os top-k savings disponíveis para tentar a fusão de rotas.
-    - Mantém todas as restrições do Clarke & Wright clássico (capacidade, demanda, etc.).
-    - Não perde nenhum serviço obrigatório.
-    - Retorna rotas e demandas prontas para VND ou outras etapas.
+    1. Objetivo:
+       Gera uma solução inicial para o CARP usando o algoritmo Clarke & Wright com randomização GRASP (escolha aleatória entre os top-k savings).
 
-    Parâmetros:
-        servicos: lista de serviços obrigatórios
-        deposito: índice do depósito
-        matriz_distancias: matriz de distâncias do grafo
-        capacidade: capacidade máxima do veículo
-        k: número de savings do topo a considerar em cada passo (top-k)
+    2. Entradas:
+       - servicos: lista de serviços obrigatórios.
+       - deposito: índice do depósito.
+       - matriz_distancias: matriz de distâncias.
+       - capacidade: capacidade máxima do veículo.
+       - k: número de savings do topo a considerar em cada passo (top-k).
 
-    Retorna:
-        rotas, demandas
+    3. Lógica:
+       Inicializa cada serviço em uma rota separada.
+       Calcula os savings e, em cada iteração, escolhe aleatoriamente um dos top-k savings disponíveis para tentar fundir rotas, respeitando a capacidade.
+       Remove savings já tentados e repete até não haver mais savings disponíveis.
+       Remove rotas vazias e valida que todos os serviços obrigatórios estão presentes.
+
+    4. Contribuição:
+       Cria soluções iniciais diversificadas e potencialmente melhores para serem refinadas por heurísticas locais.
     """
-
     # Inicializa cada serviço em uma rota separada
     rotas, demandas = construir_rotas_iniciais(servicos, deposito, matriz_distancias, capacidade)
 
@@ -105,7 +155,27 @@ def clarke_wright_grasp(servicos, deposito, matriz_distancias, capacidade, k=3):
 
     return rotas, demandas
 
+
+
 def relocate(rotas, demandas, capacidade, matriz_distancias, deposito):
+    """
+    1. Objetivo:
+       Melhora a solução atual movendo serviços de uma rota para outra, se isso reduzir o custo total e respeitar a capacidade.
+
+    2. Entradas:
+       - rotas: lista de rotas (cada rota é uma lista de serviços).
+       - demandas: lista de demandas de cada rota.
+       - capacidade: capacidade máxima do veículo.
+       - matriz_distancias: matriz de distâncias.
+       - deposito: índice do depósito.
+
+    3. Lógica:
+       Para cada serviço em cada rota, tenta movê-lo para outra rota se isso não violar a capacidade e reduzir o custo total.
+       Repete até não haver mais melhorias.
+
+    4. Contribuição:
+       Refina a solução inicial, reduzindo o custo total e melhorando a distribuição dos serviços entre as rotas.
+    """
     melhorou = True
     while melhorou:
         melhorou = False
@@ -136,7 +206,25 @@ def relocate(rotas, demandas, capacidade, matriz_distancias, deposito):
     demandas = [d for r, d in zip(rotas, demandas) if r]
     return rotas, demandas
 
+
+
 def two_opt(rota, matriz_distancias, deposito):
+    """
+    1. Objetivo:
+       Otimiza a ordem dos serviços em uma única rota, tentando todas as inversões possíveis de segmentos (2-opt), buscando reduzir o custo.
+
+    2. Entradas:
+       - rota: lista de serviços (na ordem atual).
+       - matriz_distancias: matriz de distâncias.
+       - deposito: índice do depósito.
+
+    3. Lógica:
+       Para cada par de posições, inverte o segmento intermediário e aceita a inversão se reduzir o custo da rota.
+       Repete até não haver mais melhorias.
+
+    4. Contribuição:
+       Reduz o custo de cada rota individualmente, melhorando a eficiência do trajeto do veículo.
+    """
     if len(rota) < 3:
         return rota
     melhorou = True
@@ -153,12 +241,29 @@ def two_opt(rota, matriz_distancias, deposito):
             break
     return melhor_rota
 
+
 def vnd(rotas, demandas, capacidade, matriz_distancias, deposito):
+    """
+    1. Objetivo:
+       Aplica a metaheurística VND (Variable Neighborhood Descent) para refinar a solução, combinando relocate e 2-opt.
+
+    2. Entradas:
+       - rotas: lista de rotas.
+       - demandas: lista de demandas.
+       - capacidade: capacidade máxima do veículo.
+       - matriz_distancias: matriz de distâncias.
+       - deposito: índice do depósito.
+
+    3. Lógica:
+       Primeiro aplica relocate para mover serviços entre rotas, depois aplica 2-opt para otimizar a ordem dos serviços em cada rota.
+
+    4. Contribuição:
+       Refina significativamente a solução inicial, explorando diferentes vizinhanças para encontrar soluções de menor custo.
+    """
     rotas, demandas = relocate(rotas, demandas, capacidade, matriz_distancias, deposito)
     for i in range(len(rotas)):
         rotas[i] = two_opt(rotas[i], matriz_distancias, deposito)
     return rotas, demandas
-
 
 def multi_start_pipeline(
     servicos,
@@ -166,19 +271,34 @@ def multi_start_pipeline(
     matriz_distancias,
     capacidade,
     servicos_obrigatorios,
-    k_grasp=7,
-    num_tentativas=10,
-    freq_hz=None  # passe freq_hz do main.py, se quiser clocks em ciclos
+    k_grasp=3,
+    num_tentativas=3,
+    freq_hz=None
 ):
     """
-    Multi-start controlado para o pipeline CARP:
-    - Executa todo o pipeline (Clarke & Wright GRASP + VND + segment_relocate) múltiplas vezes,
-      cada vez com uma seed diferente para a randomização do GRASP.
-    - Em cada tentativa, gera uma solução completa (rotas finais e custo total).
-    - Ao final, seleciona e retorna apenas a melhor solução (menor custo total, ou menos rotas em caso de empate).
+    1. Objetivo:
+       Executa o pipeline completo de construção e otimização de rotas múltiplas vezes (multi-start), cada vez com uma randomização diferente, e retorna a melhor solução encontrada.
 
-    Retorna:
-        melhor_rotas, melhor_demandas, clock_total_ciclos, melhor_clock_encontrado_ciclos
+    2. Entradas:
+       - servicos: lista de serviços obrigatórios.
+       - deposito: índice do depósito.
+       - matriz_distancias: matriz de distâncias.
+       - capacidade: capacidade máxima do veículo.
+       - servicos_obrigatorios: lista de todos os serviços obrigatórios (para validação).
+       - k_grasp: parâmetro top-k para o GRASP.
+       - num_tentativas: número de tentativas (multi-start).
+       - freq_hz: frequência do processador para medir tempo em ciclos (opcional).
+
+    3. Lógica:
+       Para cada tentativa:
+         - Executa o construtivo GRASP.
+         - Refina com VND e segment_relocate.
+         - Valida a solução.
+         - Guarda a melhor solução encontrada (menor custo, ou menos rotas em caso de empate).
+       Mede o tempo total e o tempo até encontrar a melhor solução.
+
+    4. Contribuição:
+       Aumenta a robustez e qualidade das soluções, explorando diferentes pontos de partida e refinando cada um.
     """
     melhor_custo = float('inf')
     melhor_num_rotas = float('inf')
@@ -245,24 +365,29 @@ def multi_start_pipeline(
 
     return melhor_rotas, melhor_demandas, clock_total_ciclos, melhor_clock_encontrado_ciclos
 
+
+
 def segment_relocate(rotas, demandas, capacidade, matriz_distancias, deposito, servicos_obrigatorios):
     """
-    Pós-processamento: realocação de segmentos (blocos contínuos) entre pares de rotas.
-    - Para cada par de rotas, tenta mover blocos de 1 até n-1 serviços de uma rota para outra.
-    - Só faz a realocação se não ultrapassar a capacidade e o custo total das duas rotas diminuir.
-    - Repete até não haver mais melhorias.
-    - Garante que nenhum serviço obrigatório é perdido ou duplicado.
+    1. Objetivo:
+       Refina a solução movendo blocos contínuos de serviços (segmentos) entre rotas, se isso reduzir o custo total e respeitar a capacidade.
 
-    Parâmetros:
-        rotas: lista de rotas (cada rota é uma lista de serviços)
-        demandas: lista de demandas de cada rota
-        capacidade: capacidade máxima do veículo
-        matriz_distancias: matriz de distâncias do grafo
-        deposito: índice do depósito
-        servicos_obrigatorios: lista de todos os serviços obrigatórios (para validação)
+    2. Entradas:
+       - rotas: lista de rotas (cada rota é uma lista de serviços).
+       - demandas: lista de demandas de cada rota.
+       - capacidade: capacidade máxima do veículo.
+       - matriz_distancias: matriz de distâncias.
+       - deposito: índice do depósito.
+       - servicos_obrigatorios: lista de todos os serviços obrigatórios (para validação).
 
-    Retorna:
-        rotas_finais, demandas_finais
+    3. Lógica:
+       Para cada par de rotas, tenta mover todos os blocos possíveis de uma para outra, desde que não deixe rota vazia e não exceda a capacidade.
+       Aceita o movimento se reduzir o custo total das duas rotas.
+       Repete até não haver mais melhorias.
+       Remove rotas vazias e valida a solução.
+
+    4. Contribuição:
+       Permite grandes saltos na vizinhança da solução, potencialmente reduzindo o número de rotas e o custo total.
     """
     melhorou = True
     while melhorou:
@@ -325,6 +450,8 @@ def segment_relocate(rotas, demandas, capacidade, matriz_distancias, deposito, s
 
     return rotas, demandas
 
+
+
 def salvar_solucao(
     nome_arquivo,
     rotas,
@@ -333,6 +460,26 @@ def salvar_solucao(
     tempo_referencia_solucao,
     deposito=0,
 ):
+    """
+    1. Objetivo:
+       Salva a solução final em um arquivo, no formato esperado pelo avaliador do problema.
+
+    2. Entradas:
+       - nome_arquivo: caminho do arquivo de saída.
+       - rotas: lista de rotas (cada rota é uma lista de serviços).
+       - matriz_distancias: matriz de distâncias.
+       - tempo_referencia_execucao: tempo total de execução (em ciclos ou ns).
+       - tempo_referencia_solucao: tempo até encontrar a melhor solução (em ciclos ou ns).
+       - deposito: índice do depósito.
+
+    3. Lógica:
+       Para cada rota, calcula o custo, demanda e monta a linha de saída no formato especificado.
+       Garante que cada serviço é impresso apenas uma vez por rota.
+       Escreve o custo total, número de rotas, tempos e as rotas no arquivo.
+
+    4. Contribuição:
+       Permite avaliar e comparar as soluções geradas pelo algoritmo, além de servir como saída oficial para submissão.
+    """
     custo_total_solucao = 0
     total_rotas = len(rotas)
     linhas_rotas = []
