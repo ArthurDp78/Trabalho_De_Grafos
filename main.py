@@ -5,6 +5,7 @@ import concurrent.futures
 from leitor_grafo import leitor_arquivo, criar_matriz_distancias, extrair_servicos
 from algoritmo_construtivo import salvar_solucao, clarke_wright_grasp, relocate, vnd, segment_relocate, multi_start_pipeline
 
+
 def processar_arquivo(arquivo, pasta_entrada, pasta_saida):
     """
     1. Objetivo:
@@ -46,10 +47,11 @@ def processar_arquivo(arquivo, pasta_entrada, pasta_saida):
         matriz_distancias,
         capacidade,
         servicos,
-        k_grasp=3,
+        k_grasp=10,
         num_tentativas=5,
         freq_hz=freq_hz
     )
+    
 
     nome_saida = os.path.join(pasta_saida, f"sol-{arquivo}")
     # Salva a solução final no formato esperado pelo avaliador do problema.
@@ -82,7 +84,7 @@ def main():
     """
     pasta_entrada = "dados"
     pasta_saida = "solucoes"
-
+    num_threads = os.cpu_count()
     if not os.path.exists(pasta_entrada):
         print(f"Pasta de entrada '{pasta_entrada}' não existe.")
         return
@@ -97,9 +99,8 @@ def main():
         return
 
     # Utiliza processamento paralelo para acelerar o processamento de múltiplas instâncias.
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Para cada arquivo, chama a função 'processar_arquivo' em paralelo.
-        executor.map(processar_arquivo, arquivos, [pasta_entrada] * len(arquivos), [pasta_saida] * len(arquivos))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+      executor.map(processar_arquivo, arquivos, [pasta_entrada] * len(arquivos), [pasta_saida] * len(arquivos))
 
 if __name__ == "__main__":
     """

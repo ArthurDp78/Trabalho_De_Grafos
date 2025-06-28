@@ -271,7 +271,7 @@ def multi_start_pipeline(
     matriz_distancias,
     capacidade,
     servicos_obrigatorios,
-    k_grasp=3,
+    k_grasp=10,
     num_tentativas=3,
     freq_hz=None
 ):
